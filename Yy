@@ -1,0 +1,91 @@
+-- Rayfield UI library
+local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Rayfield/main/source"))()
+
+-- สร้างหน้าต่างหลัก
+local Window = Rayfield:CreateWindow({
+    Name = "Bluezy Hub v2",
+    LoadingTitle = "กำลังโหลด...",
+    LoadingSubtitle = "โดย Bluezy",
+    ConfigurationSaving = { Enabled = false }
+})
+
+-- Tab หลัก
+local Tab = Window:CreateTab("Lock & Player Info")
+
+-- ฟีเจอร์ Lock
+local SectionLock = Tab:CreateSection("🔒 ล็อคตัว")
+
+local LockToggle = Tab:CreateToggle({
+    Name = "เปิด/ปิด Lock",
+    CurrentValue = false,
+    Callback = function(value)
+        getgenv().LockEnabled = value
+    end
+})
+
+-- ฟังก์ชันหาเป้าที่ใกล้ที่สุด
+local function getClosestPlayer()
+    local localPlayer = game.Players.LocalPlayer
+    local character = localPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+    local root = character.HumanoidRootPart
+    local closest, distance = nil, math.huge
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = (root.Position - player.Character.HumanoidRootPart.Position).Magnitude
+            if dist < distance then
+                distance = dist
+                closest = player
+            end
+        end
+    end
+    return closest
+end
+
+-- ล็อคกล้องไปที่เป้า
+game:GetService("RunService").RenderStepped:Connect(function()
+    if getgenv().LockEnabled then
+        local target = getClosestPlayer()
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            local camera = workspace.CurrentCamera
+            camera.CFrame = CFrame.new(camera.CFrame.Position, target.Character.HumanoidRootPart.Position)
+        end
+    end
+end)
+
+-- ฟีเจอร์ดูข้อมูลผู้เล่น
+local SectionInfo = Tab:CreateSection("📋 ข้อมูลผู้เล่น")
+
+local InfoLabel = Tab:CreateLabel("เลือกผู้เล่นจากด้านล่าง")
+
+local PlayerDropdown = Tab:CreateDropdown({
+    Name = "เลือกผู้เล่น",
+    Options = {""},
+    CurrentOption = "",
+    Callback = function(selected)
+        local target = game.Players:FindFirstChild(selected)
+        if target then
+            local health = target.Character and target.Character:FindFirstChild("Humanoid") and target.Character.Humanoid.Health or "N/A"
+            local maxHealth = target.Character and target.Character:FindFirstChild("Humanoid") and target.Character.Humanoid.MaxHealth or "N/A"
+            local team = target.Team and target.Team.Name or "ไม่มีทีม"
+            local pos = target.Character and target.Character:FindFirstChild("HumanoidRootPart") and tostring(target.Character.HumanoidRootPart.Position) or "N/A"
+            InfoLabel:Set(
+                "ชื่อ: " .. target.Name ..
+                "\nHP: " .. tostring(health) .. " / " .. tostring(maxHealth) ..
+                "\nทีม: " .. team ..
+                "\nตำแหน่ง: " .. pos
+            )
+        end
+    end
+})
+
+-- อัปเดตชื่อผู้เล่นทุกวินาที
+spawn(function()
+    while wait(1) do
+        local players = {}
+        for _, p in pairs(game.Players:GetPlayers()) do
+            table.insert(players, p.Name)
+        end
+        PlayerDropdown:Set(players)
+    end
+end)
