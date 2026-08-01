@@ -1,0 +1,119 @@
+-- 1. ดึง Rayfield UI Library มาใช้งาน
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- 2. ดึง Services ที่จำเป็น
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- 3. ตัวแปรสำหรับระบบล็อกเป้า
+getgenv().LockEnabled = false
+
+-- 4. ฟังก์ชันค้นหาผู้เล่นที่ใกล้ที่สุด (Aimbot Target)
+local function getClosestPlayer()
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+    
+    local rootPart = character.HumanoidRootPart
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local distance = (rootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closestPlayer = player
+            end
+        end
+    end
+    return closestPlayer
+end
+
+-- ระบบล็อกกล้องทำงานตลอดเวลาแบบ RenderStepped
+RunService.RenderStepped:Connect(function()
+    if getgenv().LockEnabled then
+        local target = getClosestPlayer()
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            local camera = workspace.CurrentCamera
+            camera.CFrame = CFrame.new(camera.CFrame.Position, target.Character.HumanoidRootPart.Position)
+        end
+    end
+end)
+
+-- 5. สร้างหน้าต่าง UI
+local Window = Rayfield:CreateWindow({
+   Name = "Bluezy Hub v2",
+   LoadingTitle = "กำลังโหลด...",
+   LoadingSubtitle = "by Bluezy",
+   ConfigurationSaving = { Enabled = false },
+   Discord = { Enabled = false },
+   KeySystem = false
+})
+
+local MainTab = Window:CreateTab("Main Hub", 4483362458)
+
+-- ==================== 1. ระบบล็อกเป้า (Camera Lock) ====================
+MainTab:CreateSection("🔒 Camera Lock System")
+
+MainTab:CreateToggle({
+   Name = "เปิด/ปิด ล็อกเป้าหมายใกล้ที่สุด",
+   CurrentValue = false,
+   Flag = "LockToggle",
+   Callback = function(Value)
+      getgenv().LockEnabled = Value
+   end,
+})
+
+-- ==================== 2. ระบบตรวจสอบข้อมูลผู้เล่น ====================
+MainTab:CreateSection("📋 Player Info Inspector")
+
+local InfoLabel = MainTab:CreateLabel("เลือกผู้เล่นจากดรอปดาวน์ด้านล่าง")
+
+local PlayerDropdown = MainTab:CreateDropdown({
+   Name = "เลือกผู้เล่น",
+   Options = {"Searching..."},
+   CurrentOption = {""},
+   Flag = "PlayerDropdown",
+   Callback = function(Option)
+      local selectedName = type(Option) == "table" and Option[1] or Option
+      local target = Players:FindFirstChild(selectedName)
+      
+      if target then
+         local char = target.Character
+         local hum = char and char:FindFirstChild("Humanoid")
+         local hrp = char and char:FindFirstChild("HumanoidRootPart")
+         
+         local health = hum and math.floor(hum.Health) or "N/A"
+         local maxHealth = hum and math.floor(hum.MaxHealth) or "N/A"
+         local team = target.Team and target.Team.Name or "ไม่มีทีม"
+         local pos = hrp and string.format("%.1f, %.1f, %.1f", hrp.Position.X, hrp.Position.Y, hrp.Position.Z) or "N/A"
+         
+         InfoLabel:Set(
+            "ชื่อ: " .. target.Name ..
+            " | HP: " .. tostring(health) .. "/" .. tostring(maxHealth) ..
+            " | ทีม: " .. team ..
+            " | ตำแหน่ง: " .. pos
+         )
+      end
+   end,
+})
+
+-- อัปเดตรายชื่อผู้เล่นใน Dropdown ทุกๆ 2 วินาที
+task.spawn(function()
+   while task.wait(2) do
+      local playerList = {}
+      for _, p in pairs(Players:GetPlayers()) do
+         table.insert(playerList, p.Name)
+      end
+      PlayerDropdown:Refresh(playerList)
+   end
+end)
+
+-- แจ้งเตือนเมื่อโหลดเสร็จ
+Rayfield:Notify({
+   Title = "Bluezy Hub v2 Ready!",
+   Content = "ปรับปรุงระบบเรียบร้อยแล้วครับเพื่อน",
+   Duration = 3,
+   Image = 4483362458,
+})
